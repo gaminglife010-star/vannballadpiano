@@ -1,0 +1,128 @@
+cmake_minimum_required(VERSION 3.22)
+
+project(FaseGroovePiano VERSION 0.1.0 LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Universal binary (Apple Silicon + Intel) on macOS
+if(APPLE AND NOT CMAKE_OSX_ARCHITECTURES)
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)
+endif()
+set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Minimum macOS version")
+
+option(SGK_BUILD_PLUGIN "Build the JUCE plug-in (needs JUCE)" ON)
+option(SGK_BUILD_TESTS  "Build the engine unit tests" ON)
+
+#==============================================================================
+# Music engine (pure C++, no JUCE)
+add_library(sgk_engine STATIC
+    Source/engine/Theory.cpp
+    Source/engine/GrooveEngine.cpp
+    Source/engine/Generators.cpp
+    Source/engine/HarmonyAnalyzer.cpp
+    Source/engine/Comping.cpp)
+target_include_directories(sgk_engine PUBLIC Source/engine)
+set_target_properties(sgk_engine PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+if(SGK_BUILD_TESTS)
+    enable_testing()
+    add_executable(sgk_engine_tests tests/EngineTests.cpp)
+    target_include_directories(sgk_engine_tests PRIVATE ThirdParty/fasegroove-common)
+    target_link_libraries(sgk_engine_tests PRIVATE sgk_engine)
+    add_test(NAME engine COMMAND sgk_engine_tests)
+endif()
+
+#==============================================================================
+# Plug-in
+if(SGK_BUILD_PLUGIN)
+    # Use a local JUCE checkout with -DJUCE_DIR=/path/to/JUCE, otherwise download it.
+    set(JUCE_DIR "" CACHE PATH "Path to a local JUCE checkout")
+
+    if(JUCE_DIR)
+        add_subdirectory(${JUCE_DIR} ${CMAKE_BINARY_DIR}/JUCE)
+    else()
+        include(FetchContent)
+        FetchContent_Declare(JUCE
+            GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+            GIT_TAG 8.0.9
+            GIT_SHALLOW TRUE)
+        FetchContent_MakeAvailable(JUCE)
+    endif()
+
+    set(SGK_FORMATS VST3 Standalone)
+    if(APPLE)
+        list(APPEND SGK_FORMATS AU)
+    endif()
+
+    juce_add_plugin(FaseGroovePiano
+        PRODUCT_NAME "Vann Ballad Piano"
+        COMPANY_NAME "Mr. Vann"
+        BUNDLE_ID "com.mrvann.vannballadpiano"
+        PLUGIN_MANUFACTURER_CODE MrVn
+        PLUGIN_CODE Vbp1
+        ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon_512.png"
+        FORMATS ${SGK_FORMATS}
+        IS_SYNTH TRUE
+        NEEDS_MIDI_INPUT TRUE
+        NEEDS_MIDI_OUTPUT TRUE
+        IS_MIDI_EFFECT FALSE
+        EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+        COPY_PLUGIN_AFTER_BUILD FALSE
+        VST3_CATEGORIES Instrument Generator
+        AU_MAIN_TYPE kAudioUnitType_MusicDevice)
+
+    juce_add_binary_data(FaseGroovePianoData SOURCES
+        Resources/fgp_icon.svg
+        Resources/fs_pitch_logo.png
+        Resources/Inter-Regular.otf
+        Resources/Inter-SemiBold.otf)
+
+    target_sources(FaseGroovePiano PRIVATE
+        Source/PluginProcessor.cpp
+        Source/PluginEditor.cpp
+        Source/PadController.cpp
+        Source/Product.cpp
+        # The family's shared module, vendored by fasegroove/scripts/sync.sh (do not edit here).
+        ThirdParty/fasegroove-common/CircleOfFifths.cpp
+        ThirdParty/fasegroove-common/Branding.cpp
+        ThirdParty/fasegroove-common/Localisation.cpp
+        ThirdParty/fasegroove-common/Updater.cpp
+        ThirdParty/fasegroove-common/UpdateOverlay.cpp)
+    target_include_directories(FaseGroovePiano PUBLIC ThirdParty/fasegroove-common)
+
+    # The family's editor widgets (EditorWidgets.h) in place of the piano's own knob.
+    # OFF builds the piano's own, as before.
+    option(FGP_SHARED_WIDGETS "Use the shared Fase Groove editor widgets" ON)
+    if(FGP_SHARED_WIDGETS)
+        target_sources(FaseGroovePiano PRIVATE ThirdParty/fasegroove-common/EditorWidgets.cpp)
+        target_compile_definitions(FaseGroovePiano PUBLIC FGP_SHARED_WIDGETS=1)
+    endif()
+
+    target_compile_definitions(FaseGroovePiano PUBLIC
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_VST3_CAN_REPLACE_VST2=0
+        JUCE_DISPLAY_SPLASH_SCREEN=0)
+
+    target_link_libraries(FaseGroovePiano
+        PUBLIC
+            FaseGroovePianoData
+        PRIVATE
+            sgk_engine
+            juce::juce_audio_utils
+            juce::juce_cryptography   # the updater checks downloads (SHA-256)
+            juce::juce_dsp
+        PUBLIC
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_lto_flags
+            juce::juce_recommended_warning_flags)
+
+    # Plug-in level tests (state, presets, MIDI export, transport, updates); run by ctest in CI.
+    if(SGK_BUILD_TESTS)
+        juce_add_console_app(sgk_plugin_tests PRODUCT_NAME "Vann Ballad Piano Tests")
+        target_sources(sgk_plugin_tests PRIVATE tests/PluginTests.cpp)
+        target_link_libraries(sgk_plugin_tests PRIVATE FaseGroovePiano juce::juce_audio_utils juce::juce_dsp juce::juce_cryptography)
+        add_test(NAME plugin COMMAND sgk_plugin_tests)
+    endif()
+endif()
