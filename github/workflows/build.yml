@@ -1,0 +1,50 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Windows, os: windows-latest, package: VannBalladPiano-Windows }
+          - { name: macOS,   os: macos-latest,   package: VannBalladPiano-macOS }
+          - { name: Linux,   os: ubuntu-latest,  package: VannBalladPiano-Linux }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxext-dev libfreetype-dev libfontconfig1-dev libxcomposite-dev
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Tests
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist
+          cd build/FaseGroovePiano_artefacts/Release
+          for dir in VST3 AU Standalone; do [ -d "$dir" ] && cp -R "$dir" "$GITHUB_WORKSPACE/dist/"; done
+          cd "$GITHUB_WORKSPACE"
+          cp README.md LICENSE THIRD_PARTY_NOTICES.md dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.package }}
+          path: dist/
