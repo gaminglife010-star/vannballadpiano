@@ -103,7 +103,7 @@ void copySegment (GroovePattern& into, const GroovePattern& from, int segment)
 //==============================================================================
 const char* sectionName (int section) noexcept
 {
-    static const char* const names[numSections] { "Main groove", "Intro", "Break", "Build-up", "Drop", "Outro" };
+    static const char* const names[numSections] { "Verse", "Intro", "Bridge", "Pre-Chorus", "Chorus", "Outro" };
     return names[std::clamp (section, 0, numSections - 1)];
 }
 
@@ -112,7 +112,7 @@ double sectionVelocityScale (Section section) noexcept
     switch (section)
     {
         case Section::intro:     return 0.8;
-        case Section::breakdown: return 0.72;
+        case Section::breakdown: return 0.85;
         case Section::buildup:   return 0.9;
         case Section::drop:      return 1.1;
         case Section::outro:     return 0.8;
@@ -140,7 +140,7 @@ GroovePattern applySection (const GroovePattern& source, Section section)
             for (int i = 0; i < len; ++i)
             {
                 char& c = p.rightHand[(size_t) i];
-                if (c == 'g' || ((c == 'x' || c == 'u' || c == 'd') && i % 4 != 0))
+                if (c == 'g' || ((c == 'x' || c == 'u' || c == 'd' || (c >= '1' && c <= '8')) && i % 4 != 0))
                     c = '.';
                 else if (c == 'X')
                     c = 'x';
@@ -160,26 +160,27 @@ GroovePattern applySection (const GroovePattern& source, Section section)
 
         case Section::breakdown:
         {
-            // Long, soft pads: one chord per bar, held almost to the end.
+            // Bridge: stripped back to long chords on beats 1 and 3, the bass on the root.
             for (int i = 0; i < len; ++i)
             {
                 const int inBar = i % 16;
-                p.rightHand[(size_t) i] = inBar == 0 ? 'X' : inBar < 15 ? '=' : '.';
+                p.rightHand[(size_t) i] = inBar == 0 ? 'X' : inBar == 8 ? 'x' : '=';
+                p.leftHand[(size_t) i]  = inBar == 0 ? 'x' : '=';
             }
-
-            p.leftHand.assign ((size_t) len, '.');
             break;
         }
 
         case Section::buildup:
         {
-            // Bar 1: straight 8ths, bar 2: driving 16ths; bass pumping on quarters then 8ths.
+            // Pre-chorus: block chords on the quarters, then on the 8ths for the second half,
+            // the bass walking along on the quarters.
             for (int i = 0; i < len; ++i)
             {
                 const bool secondHalf = i >= len / 2;
-                p.rightHand[(size_t) i] = secondHalf ? (i % 4 == 0 ? 'X' : 'x') : (i % 2 == 0 ? (i % 4 == 0 ? 'X' : 'x') : '.');
-                p.leftHand[(size_t) i]  = secondHalf ? (i % 2 == 0 ? 'x' : '.') : (i % 4 == 0 ? 'x' : '.');
+                p.rightHand[(size_t) i] = secondHalf ? (i % 2 == 0 ? (i % 4 == 0 ? 'X' : 'x') : '.') : (i % 4 == 0 ? (i % 8 == 0 ? 'X' : 'x') : '=');
+                p.leftHand[(size_t) i]  = i % 4 == 0 ? 'x' : '=';
             }
+            repairHolds (p.rightHand);
             break;
         }
 
@@ -513,6 +514,7 @@ GenreRiffFeel genreRiffFeel (int genre) noexcept
         { 2, 1, 1, 0.30f, 0.80f },   // Soft Soul: rootless 7ths
         { 3, 5, 0, 0.00f, 0.90f },   // Worship: wide add9
         { 2, 2, 1, 0.40f, 0.60f },   // Lounge Jazz: rootless 9ths
+        { 3, 0, 0, 0.00f, 0.85f },   // Soft Rock Ballad: wide triads
     };
     const int n = (int) (sizeof (feel) / sizeof (*feel));
     if (genre < 0 || genre >= n)
@@ -537,6 +539,7 @@ GenreRiffFeel genreRiffFeel (int genre, std::uint32_t seed) noexcept
         { { 2, 1 }, { 2, 2 }, { 6, 9 }, { 9, 3 } },              // Soft Soul
         { { 3, 5 }, { 3, 0 }, { 1, 5 } },                        // Worship
         { { 2, 2 }, { 2, 1 }, { 6, 9 }, { 5, 2 } },              // Lounge Jazz
+        { { 3, 0 }, { 3, 5 }, { 1, 0 } },                        // Soft Rock Ballad
     };
     auto feel = genreRiffFeel (genre);
     if (seed == 0 || genre < 0 || genre >= (int) (sizeof (takes) / sizeof (*takes)))
@@ -584,8 +587,8 @@ namespace
     int balladFamily (int genre) noexcept
     {
         // 0 sustained chords, 1 arpeggios, 2 rhythmic comping (indexes follow grooveCategories())
-        static const int family[13] { 0, 1, 0, 2, 0, 1, 2, 0, 1, 1, 2, 0, 2 };
-        return family[std::clamp (genre, 0, 12)];
+        static const int family[14] { 0, 1, 0, 2, 0, 1, 2, 0, 1, 1, 2, 0, 2, 3 };
+        return family[std::clamp (genre, 0, 13)];
     }
 }
 
@@ -603,13 +606,17 @@ GroovePattern makeBalladPattern (std::uint32_t seed, float densityIn, int genre)
         "X=== ==== ..x. ....", "..x. ..x. ..x. ..x.", "X..x ..x. ..x. ..x.", "X==. ..x= .g.. x===",
         "X..x ..x. .x.. x...", ".X=. ..x. .x.. ..x.", "X=.. x=.x ..x. x=..", "x.x. x.x. x.x. x.xg",
     };
+    static const char* const rock[] {
+        "X=== ==== x=== ====", "X=== x=== x=== x===", "x=== X=== x=== X===", "X=== ==== x=== ..>=",
+        "X.x. x.x. x.x. x.x.", "X..x ..x. ..X. x...", "X.x. x.xg x.x. x.xg", "X=.x ..x. X=.x ..x.",
+    };
     static const char* const lowLeft[] {
         "x=== ==== ==== ====", "x=== ==== x=== ====", "x=== ==== ==== ..x.", "x=== ==== ..x. ====",
     };
 
     const double density = std::clamp ((double) densityIn, 0.0, 1.0);
     const int family = balladFamily (genre);
-    const char* const* bars = family == 0 ? sustained : family == 1 ? arpeggio : rhythmic;
+    const char* const* bars = family == 0 ? sustained : family == 1 ? arpeggio : family == 2 ? rhythmic : rock;
 
     GroovePattern p;
     p.rightHand = balladBars (bars, 8, seed, density, genre + 1);
@@ -1186,8 +1193,8 @@ std::vector<int> randomProgression (std::uint32_t seed, int length, int scale, i
 const std::vector<ArrangementPart>& defaultArrangement()
 {
     static const std::vector<ArrangementPart> parts {
-        { Section::intro, 8 }, { Section::main, 16 }, { Section::breakdown, 8 },
-        { Section::buildup, 4 }, { Section::drop, 16 }, { Section::outro, 8 },
+        { Section::intro, 8 }, { Section::main, 16 }, { Section::buildup, 4 },
+        { Section::drop, 16 }, { Section::breakdown, 8 }, { Section::outro, 8 },
     };
     return parts;
 }

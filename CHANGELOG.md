@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0
+- Song arrangement now Intro / Verse / Pre-Chorus / Chorus / Bridge / Outro.
+- New genre: Soft Rock Ballad (5 grooves, 5 styles, 3 progressions).
+
 ## 0.1.0 - Vann Ballad Piano (fork of Fase Groove Piano 0.31.11)
 - New ballad / indie / relaxing grooves, bass lines, progressions, styles and riff generator.
 - Arpeggio steps (1-8) in the engine and grid editor.

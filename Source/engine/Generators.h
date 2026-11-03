@@ -118,7 +118,7 @@ struct ArrangementPart
     int endFill = -1;              // fill on its last bar: -1 as set in the Groove panel, -2 none, else a fill style
 };
 
-/** Intro 8 | Main 16 | Break 8 | Build-up 4 | Drop 16 | Outro 8 */
+/** Intro 8 | Verse 16 | Pre-Chorus 4 | Chorus 16 | Bridge 8 | Outro 8 */
 const std::vector<ArrangementPart>& defaultArrangement();
 
 } // namespace sgk

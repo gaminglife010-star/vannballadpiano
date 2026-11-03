@@ -328,7 +328,7 @@ public:
         only once the new one is complete (a full disk or no permission keeps the old clip). */
     static bool writeMidiFileSafely (const juce::MidiFile&, const juce::File& target);
 
-    // Song arrangement: Intro, Main, Break, Build-up, Drop, Outro (the order of sgk::defaultArrangement).
+    // Song arrangement: Intro, Verse, Pre-Chorus, Chorus, Bridge, Outro (the order of sgk::defaultArrangement).
     static constexpr int numSongParts = 6;
     std::vector<sgk::ArrangementPart> songArrangementParts() const;
     void setSongBars (int part, int bars);

@@ -577,6 +577,11 @@ namespace
         { "Hymn Quarters", "Peaceful  I - iii - IV - iii", "Hymn Quarters", 0, 3, 27, 0, 1, 62, 0.00f, 0.90f, 0.20f, 0.10f, false, 0, 0, 0 },
         { "Lounge Jazz Piano", "Lo-fi Jazz  ii - V - I - vi", "Piano Bar", 2, 2, 28, 0, 0, 62, 0.40f, 0.60f, 0.30f, 0.15f, false, 0, 0, 0 },
         { "Late Night Comp", "Sunday Gospel-lite  IV - iii - vi - ii - V", "Late Night Comp", 2, 2, 28, 0, 0, 62, 0.40f, 0.60f, 0.30f, 0.15f, false, 0, 0, 0 },
+        { "Soft Rock Ballad", "Soft Rock Anthem  I - IV - V - IV", "Soft Rock Eighths", 0, 3, 12, 0, 2, 62, 0.00f, 0.85f, 0.20f, 0.15f, false, 0, 0, 0 },
+        { "Piano Rock Backbeat", "Axis of Pop  I - V - vi - IV", "Piano Rock Backbeat", 0, 3, 9, 0, 2, 62, 0.00f, 0.85f, 0.20f, 0.15f, false, 0, 0, 0 },
+        { "Dotted Rock Drive", "Rock Ballad Borrowed  I - IV - bVII - IV", "Dotted Rock Drive", 0, 3, 15, 0, 2, 62, 0.00f, 0.80f, 0.20f, 0.15f, false, 0, 0, 0 },
+        { "Arena Lift Ballad", "Pachelbel Canon  I-V-vi-iii-IV-I-IV-V", "Arena Arpeggio Lift", 0, 0, 7, 0, 1, 62, 0.00f, 0.92f, 0.20f, 0.10f, false, 0, 0, 0 },
+        { "Rock Ballad Push", "Piano Rock  vi - V - IV - I", "Rock Ballad Push", 5, 3, 29, 0, 1, 62, 0.00f, 0.90f, 0.20f, 0.15f, false, 0, 0, 0 },
         // Genre presets (one per groove category), appended after the hand-made styles.
         { fgfamily::names[0], "", "", 0,0,0,0,0,64,0,0,0,0,false },
         { fgfamily::names[1], "", "", 0,0,0,0,0,64,0,0,0,0,false },
@@ -591,6 +596,7 @@ namespace
         { fgfamily::names[10], "", "", 0,0,0,0,0,64,0,0,0,0,false },
         { fgfamily::names[11], "", "", 0,0,0,0,0,64,0,0,0,0,false },
         { fgfamily::names[12], "", "", 0,0,0,0,0,64,0,0,0,0,false },
+        { fgfamily::names[13], "", "", 0,0,0,0,0,64,0,0,0,0,false },
     };
 
     int indexOfGroove (const char* name)

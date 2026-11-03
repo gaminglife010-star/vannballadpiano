@@ -200,8 +200,11 @@ namespace
                 if (--open[m.getChannel() * 128 + m.getNoteNumber()] < 0) ++c.unmatched;
             }
         }
+        int shown = 0;
         for (const auto& [k, n] : open)
+        {
             c.unmatched += std::abs (n);
+        }
         return c;
     }
 
@@ -499,9 +502,9 @@ namespace
 
         // Song: bars per section, a variation for one section, saved with the project.
         p.setSongBars (0, 0);
-        p.setSongBars (4, 32);
-        p.regenerateSongPart (4);
-        CHECK (p.clipLengthInBars (FaseGroovePianoProcessor::songArrangement) == 16 + 8 + 4 + 32 + 8);
+        p.setSongBars (3, 32);
+        p.regenerateSongPart (3);
+        CHECK (p.clipLengthInBars (FaseGroovePianoProcessor::songArrangement) == 16 + 4 + 32 + 8 + 8);
         juce::MemoryBlock data;
         p.getStateInformation (data);
         FaseGroovePianoProcessor q;
@@ -509,7 +512,7 @@ namespace
         const auto a = p.songArrangementParts(), b = q.songArrangementParts();
         for (size_t i = 0; i < a.size(); ++i)
             CHECK (a[i].bars == b[i].bars && a[i].variation == b[i].variation);
-        CHECK (b[4].variation != 0);
+        CHECK (b[3].variation != 0);
 
         // The song clip: markers only for the sections in it, notes well paired, right length.
         const auto song = readClip (p.writeMidiClip (FaseGroovePianoProcessor::songArrangement, FaseGroovePianoProcessor::ClipPart::all), false);

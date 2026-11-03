@@ -353,7 +353,7 @@ static void testSections()
             CHECK (p.length() == base.length());
             CHECK (countHits (p.rightHand) > 0);
 
-            if (section == (int) Section::intro || section == (int) Section::breakdown)
+            if (section == (int) Section::intro)
                 CHECK (countHits (p.leftHand) == 0);
             if (section == (int) Section::intro)
                 CHECK (countHits (p.rightHand) <= countHits (base.rightHand));
@@ -1114,7 +1114,7 @@ static void testStrum()
 
 static void testPatternsWellFormed()
 {
-    CHECK (groovePatterns().size() == 57);
+    CHECK (groovePatterns().size() == 62);
     for (const auto& p : groovePatterns())
         CHECK (std::find_if (grooveCategories().begin(), grooveCategories().end(), [&p] (const char* c) { return p.category == c; }) != grooveCategories().end());
 

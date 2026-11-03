@@ -277,6 +277,21 @@ const std::vector<GroovePattern>& groovePatterns()
         { "Bossa Whisper",
           compact ("X..x ..x. .x.. x..x X..x ..x. .x.. x..."),
           compact ("x=== ==== x=== ==== x=== ==== x=== ===="), "Lounge Jazz" },
+        { "Soft Rock Eighths",
+          compact ("X.x. x.x. x.x. x.xg X.x. x.x. x.x. x.xg"),
+          compact ("x=== ==== x=== ==== x=== ==== x=== ===="), "Soft Rock Ballad" },
+        { "Piano Rock Backbeat",
+          compact ("x=== X=== x=== X=== x=== X=== x=== X==="),
+          compact ("x=== ==== x=== ==== x=== ==== x=== ===="), "Soft Rock Ballad" },
+        { "Dotted Rock Drive",
+          compact ("X..x ..x. ..X. x... X..x ..x. ..X. x..."),
+          compact ("x=== ==== ..x. ==== x=== ==== ..x. ===="), "Soft Rock Ballad" },
+        { "Arena Arpeggio Lift",
+          compact ("1.2. 3.4. 5.4. 3.2. X=== x=== x.x. ..>="),
+          compact ("x=== ==== ==== ==== x=== x=== x=== ===="), "Soft Rock Ballad" },
+        { "Rock Ballad Push",
+          compact ("X=== ==== x=.x ..x. X=== ==== x=.x ..>="),
+          compact ("x=== ==== x=== ..x. x=== ==== x=== ..x."), "Soft Rock Ballad" },
     };
 
     static const std::vector<GroovePattern> patterns = []
@@ -291,7 +306,7 @@ const std::vector<GroovePattern>& groovePatterns()
 
 const std::vector<const char*>& grooveCategories()
 {
-    static const std::vector<const char*> categories { "Pop Ballad", "Arpeggio Ballad", "Power Ballad", "Indie Pop", "Dream Pop", "Singer-Songwriter", "Lo-fi Chill", "Ambient & Relax", "Cinematic Soft", "Neo-Classical", "Soft Soul", "Worship & Hymn", "Lounge Jazz" };
+    static const std::vector<const char*> categories { "Pop Ballad", "Arpeggio Ballad", "Power Ballad", "Indie Pop", "Dream Pop", "Singer-Songwriter", "Lo-fi Chill", "Ambient & Relax", "Cinematic Soft", "Neo-Classical", "Soft Soul", "Worship & Hymn", "Lounge Jazz", "Soft Rock Ballad" };
     return categories;
 }
 
@@ -355,6 +370,9 @@ const std::vector<ProgressionPreset>& progressionPresets()
         { "Lo-fi Dorian  i - ii - IV - i", 1, { 0, 1, 3, 0 }, "Soulful & Lo-fi" },
         { "Soft Soul  I - iii - IV - iv", 0, { 0, 0, 0, 0 }, "Soulful & Lo-fi", { 0, 4, 5, 17 } },
         { "Sunday Gospel-lite  IV - iii - vi - ii - V", 0, { 3, 2, 5, 1, 4 }, "Soulful & Lo-fi" },
+        { "Soft Rock Anthem  I - IV - V - IV", 0, { 0, 3, 4, 3 }, "Pop Ballad" },
+        { "Piano Rock  vi - V - IV - I", 0, { 5, 4, 3, 0 }, "Pop Ballad" },
+        { "Rock Ballad Borrowed  I - IV - bVII - IV", 0, { 0, 0, 0, 0 }, "Pop Ballad", { 0, 5, 10, 5 } },
     };
 
     return presets;

@@ -9,9 +9,11 @@ used and modified under the **GNU AGPL v3 or later**. Modifications (c) 2026 Mr.
 If you distribute this plug-in you must also make this source code available (see LICENSE).
 
 ## What is different from the house version
-- 13 genres: Pop Ballad, Arpeggio Ballad, Power Ballad, Indie Pop, Dream Pop, Singer-Songwriter,
-  Lo-fi Chill, Ambient & Relax, Cinematic Soft, Neo-Classical, Soft Soul, Worship & Hymn, Lounge Jazz.
-- 57 grooves, 24 ballad bass lines, 40 progressions, 30 one-click styles + 13 genre presets.
+- 14 genres: Pop Ballad, Arpeggio Ballad, Power Ballad, Indie Pop, Dream Pop, Singer-Songwriter,
+  Lo-fi Chill, Ambient & Relax, Cinematic Soft, Neo-Classical, Soft Soul, Worship & Hymn, Lounge Jazz,
+  **Soft Rock Ballad**.
+- Song arrangement: Intro 8 | Verse 16 | Pre-Chorus 4 | Chorus 16 | Bridge 8 | Outro 8 bars.
+- 62 grooves, 24 ballad bass lines, 43 progressions, 35 one-click styles + 14 genre presets.
 - **Arpeggio steps** (`1`-`8` in the groove grid): play only the Nth note of the chord, notes ring to the next chord.
   Edit them by right-clicking a cell: "Arpeggio: note N".
 - NEW RIFF / DICE generate ballad riffs (sustained, arpeggio or soft rhythmic bars).
