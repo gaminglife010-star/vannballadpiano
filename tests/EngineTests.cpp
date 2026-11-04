@@ -328,6 +328,41 @@ static void testRandomRiffs()
     }
 }
 
+static void testMelody()
+{
+    // The piano melody: extra notes above the chords, in the scale, in range, paired, repeatable,
+    // none in the intro and the outro.
+    for (int section = 0; section < numSections; ++section)
+        for (int scale : { 0, 2 })
+        {
+            GrooveSettings s;
+            s.keyRoot = 0; s.scale = scale; s.pattern = 5; s.progressionLength = 4;
+            s.progression = { 0, 4, 5, 3, 0, 0, 0, 0 };
+            s.humanize = 0.0f; s.section = (Section) section;
+            auto without = s;
+            s.melody = true;
+            const auto a = GrooveEngine::renderClip (s, 32.0), b = GrooveEngine::renderClip (s, 32.0), c = GrooveEngine::renderClip (without, 32.0);
+            CHECK (a.size() == b.size());
+            const bool silent = section == (int) Section::intro || section == (int) Section::outro;
+            CHECK (silent ? a.size() == c.size() : a.size() > c.size());
+            int ons = 0, offs = 0;
+            for (const auto& e : a) (e.isNoteOn() ? ons : offs)++;
+            CHECK (ons == offs);
+            const auto& intervals = scaleIntervals (scale);
+            std::multiset<std::pair<double, int>> base;
+            for (const auto& e : c) if (e.isNoteOn()) base.insert ({ e.ppq, e.note });
+            for (const auto& e : a)
+            {
+                if (! e.isNoteOn()) continue;
+                if (const auto it = base.find ({ e.ppq, e.note }); it != base.end()) { base.erase (it); continue; }
+                CHECK (e.note >= 66 && e.note <= 96);
+                bool inScale = false;
+                for (int d : intervals) inScale = inScale || ((e.note % 12) - 0 + 12) % 12 == d;
+                CHECK (inScale);
+            }
+        }
+}
+
 static void testRandomProgressions()
 {
     for (std::uint32_t seed = 0; seed < 300; ++seed)
@@ -1975,6 +2010,7 @@ int main()
     testPushIsTied();
     testClipExport();
     testRandomRiffs();
+    testMelody();
     testGenreRiffs();
     testGenreDiversity();
     testRandomProgressions();

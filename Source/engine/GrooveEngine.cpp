@@ -2287,6 +2287,8 @@ void GrooveEngine::render (double startPpq, double endPpq, const GrooveSettings&
         for (auto step = firstStep; step <= lastStep; ++step)
         {
             collectStep (step, s, pattern, cachedVariation, chords, voiced);
+            if (s.melody)
+                collectMelody (step, s, chords);
             collectStrings (step, s, startPpq, endPpq);
         }
     }
@@ -2348,6 +2350,140 @@ void GrooveEngine::render (double startPpq, double endPpq, const GrooveSettings&
     }
 
     flushOffsUpTo (endPpq, false, out);
+}
+
+
+//==============================================================================
+// Piano melody: a singable line above the chords. Four-bar phrases (question, answer, question,
+// cadence), strong beats on chord tones, the rest stepwise through the scale, one register per
+// song section. Every bar is worked out from its own seed, so any start point plays the same line.
+namespace
+{
+    struct MelodyNote { int step, length; };
+
+    struct MelodyRng
+    {
+        std::uint32_t state;
+        explicit MelodyRng (std::uint32_t seed) : state (seed * 2654435761u + 0x9E3779B9u) { next(); next(); }
+        std::uint32_t next() { state ^= state << 13; state ^= state >> 17; state ^= state << 5; return state; }
+    };
+
+    const std::vector<std::vector<MelodyNote>>& melodyRhythms()
+    {
+        static const std::vector<std::vector<MelodyNote>> r {
+            { { 0, 8 }, { 8, 4 }, { 12, 4 } },
+            { { 0, 6 }, { 6, 2 }, { 8, 6 }, { 14, 2 } },
+            { { 0, 4 }, { 4, 4 }, { 8, 4 }, { 12, 4 } },
+            { { 2, 6 }, { 8, 2 }, { 10, 6 } },
+            { { 0, 3 }, { 3, 1 }, { 4, 4 }, { 8, 8 } },
+            { { 0, 2 }, { 2, 2 }, { 4, 4 }, { 8, 2 }, { 10, 2 }, { 12, 4 } },
+            { { 0, 12 }, { 12, 4 } },
+            { { 0, 16 } },
+        };
+        return r;
+    }
+
+    int nearestIn (const std::vector<int>& pool, int target, int avoid = -1)
+    {
+        int best = -1;
+        for (int n : pool)
+            if (n != avoid && (best < 0 || std::abs (n - target) < std::abs (best - target)))
+                best = n;
+        return best < 0 ? pool.front() : best;
+    }
+}
+
+void GrooveEngine::collectMelody (long long step, const GrooveSettings& s, const std::array<Chord, maxProgressionLength>& chords)
+{
+    if (s.section == Section::intro || s.section == Section::outro)
+        return;
+
+    const int inBar = (int) mod (step, 16);
+    const long long bar = floorDiv (step, 16);
+    const int phraseBar = (int) mod (bar, 4);
+    const std::uint32_t phrase = (std::uint32_t) (mod (floorDiv (bar, 4), 2));   // two phrases, then they come back
+    const auto& rhythms = melodyRhythms();
+
+    // Rhythm: question (A), answer (B), question again, then a longer cadence.
+    MelodyRng rng (s.riffSeed * 31u + phrase * 7919u + 13u);
+    const size_t a = rng.next() % 5, b = rng.next() % 5, cad = 5 + rng.next() % 3;
+    const size_t which = phraseBar == 0 ? a : phraseBar == 1 ? b : phraseBar == 2 ? a : (cad > 6 ? cad : 6 + rng.next() % 2);
+    const auto& rhythm = rhythms[std::min (which, rhythms.size() - 1)];
+
+    const MelodyNote* hit = nullptr;
+    for (const auto& n : rhythm)
+        if (n.step == inBar) { hit = &n; break; }
+    if (hit == nullptr)
+        return;
+    const int noteIndex = (int) (hit - rhythm.data());
+
+    // Pitch pool: the scale between low and high; one register per section.
+    const int centre = s.section == Section::drop ? 84 : s.section == Section::breakdown ? 79 : s.section == Section::buildup ? 81 : 78;
+    const int low = centre - 9, high = centre + 9;
+    std::vector<int> pool;
+    const auto& scale = scaleIntervals (s.scale);
+    for (int n = low; n <= high; ++n)
+        for (int d : scale)
+            if (mod (n - s.keyRoot, 12) == d) { pool.push_back (n); break; }
+    if (pool.empty())
+        return;
+
+    // Replay this bar from its first note (stateless): contour target per bar of the phrase.
+    static constexpr int contour[4] { 0, 2, 1, -1 };
+    int target = centre + contour[phraseBar] * 2;
+    MelodyRng pitchRng (s.riffSeed * 40503u + (std::uint32_t) bar * 2246822519u + 5u);
+    int pitch = nearestIn (pool, target);
+    int note = pitch;
+    for (int i = 0; i <= noteIndex; ++i)
+    {
+        const int stepHere = rhythm[(size_t) i].step;
+        const auto& chord = chords[(size_t) slotForStep (bar * 16 + stepHere, s)];
+        std::vector<int> tones;
+        for (int pool_n : pool)
+        {
+            const int pc = (int) mod (pool_n - chord.rootPc, 12);
+            for (int t = 0; t < chord.tones.size; ++t)
+                if (mod (chord.tones[t], 12) == pc) { tones.push_back (pool_n); break; }
+        }
+        if (tones.empty())
+            tones = pool;
+
+        const bool strong = stepHere % 8 == 0;
+        const bool lastOfPhrase = phraseBar == 3 && i == (int) rhythm.size() - 1;
+        if (i == 0)
+            note = nearestIn (strong ? tones : pool, target);
+        else
+        {
+            const int previous = note;
+            // Mostly steps, now and then a skip; the line leans towards the phrase's contour.
+            static constexpr int moves[8] { -2, -1, -1, 1, 1, 2, -1, 1 };
+            int move = moves[pitchRng.next() % 8];
+            if (std::abs (target - previous) > 3 && pitchRng.next() % 3 != 0)
+                move = target > previous ? std::abs (move) : -std::abs (move);
+            const auto at = std::find (pool.begin(), pool.end(), previous);
+            const int idx = std::clamp ((int) std::distance (pool.begin(), at) + move, 0, (int) pool.size() - 1);
+            note = pool[(size_t) idx];
+            if (strong || lastOfPhrase)
+                note = nearestIn (tones, note, previous);
+            if (note == previous)
+                note = pool[(size_t) std::clamp (idx + (target >= previous ? 1 : -1), 0, (int) pool.size() - 1)];
+        }
+        if (lastOfPhrase)   // come home: the chord's root, third or fifth
+        {
+            std::vector<int> home;
+            for (int n : tones)
+                if (const int d = (int) mod (n - chord.rootPc, 12); d == 0 || d == 4 || d == 3 || d == 7)
+                    home.push_back (n);
+            note = nearestIn (home.empty() ? tones : home, note);
+        }
+    }
+
+    const double stepsLength = (double) hit->length * stepLength;
+    const double on = (double) step * stepLength + std::clamp (s.humanize, 0.0f, 1.0f) * 0.012 * (noise (step, 4242) - 0.5);
+    const int vel = std::clamp ((int) std::round (s.velocity * (inBar % 8 == 0 ? 0.92 : 0.84) * sectionVelocityScale (s.section)
+                                                  + (noise (step, 4243) - 0.5) * 8.0 * std::clamp (s.humanize, 0.0f, 1.0f)), 20, 127);
+    pending.push_back ({ std::max (step >= 0 ? 0.0 : -1.0e9, on), note, vel,
+                         std::max (0.06, stepsLength * (hit->length >= 4 ? 0.97 : 0.88)), false, Part::chords });
 }
 
 void GrooveEngine::allNotesOff (double ppq, std::vector<NoteEvent>& out)

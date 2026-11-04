@@ -12,7 +12,12 @@ If you distribute this plug-in you must also make this source code available (se
 - 14 genres: Pop Ballad, Arpeggio Ballad, Power Ballad, Indie Pop, Dream Pop, Singer-Songwriter,
   Lo-fi Chill, Ambient & Relax, Cinematic Soft, Neo-Classical, Soft Soul, Worship & Hymn, Lounge Jazz,
   **Soft Rock Ballad**.
-- Song arrangement: Intro 8 | Verse 16 | Pre-Chorus 4 | Chorus 16 | Bridge 8 | Outro 8 bars.
+- **Editable song arrangement**: 10 rows; each has a kind (Intro, Verse, Pre-Chorus, Chorus, Bridge, Outro),
+  up/down arrows, and bars (`-` leaves it out). Default: Intro 8 | Verse 16 | Pre-Chorus 4 | Chorus 16 | Bridge 8 | Outro 8,
+  with four spare rows for Verse 2, a second Pre-Chorus and final choruses.
+- **Piano melody**: the Melody switch in the Piano panel adds a singable line above the chords (not in intro/outro);
+  it exports with the Piano part. Styles "Pop Ballad / Soft Rock / Indie Pop + Melody" switch it on.
+- Export tip: ALL puts piano (channel 1), bass (2) and strings (3) in ONE track; use TRACKS for separate tracks.
 - 62 grooves, 24 ballad bass lines, 43 progressions, 35 one-click styles + 14 genre presets.
 - **Arpeggio steps** (`1`-`8` in the groove grid): play only the Nth note of the chord, notes ring to the next chord.
   Edit them by right-clicking a cell: "Arpeggio: note N".

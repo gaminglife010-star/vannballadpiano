@@ -205,6 +205,7 @@ struct GrooveSettings
     FillStyle fillStyle = FillStyle::pentatonicUp;
     float strum = 0.0f;                    // 0..1: roll the chord notes like a pianist
     bool octaveTop = false;                // double the top note an octave higher
+    bool melody = false;                   // a generated singable piano melody above the chords
     ApproachStyle approach = ApproachStyle::off;
     TopLine topLine = TopLine::automatic;
     std::array<int, maxProgressionLength> inversions {};   // per slot, -3..3
@@ -397,6 +398,7 @@ private:
     void collectStep (long long step, const GrooveSettings& s, const GroovePattern& normalPattern, const GroovePattern& variation,
                       const std::array<Chord, maxProgressionLength>& chords,
                       const std::array<VoicedChord, maxProgressionLength>& voiced);
+    void collectMelody (long long step, const GrooveSettings& s, const std::array<Chord, maxProgressionLength>& chords);
     void collectBassLine (long long step, const GrooveSettings& s, const std::array<Chord, maxProgressionLength>& chords,
                           const std::string& line);
     void collectStrings (long long step, const GrooveSettings& s, double startPpq, double endPpq);

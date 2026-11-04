@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0
+- Song arrangement is editable: 10 rows, kind per row, move up/down, bars (- removes), numbered file names (Verse 1, Verse 2).
+- Piano Melody switch + three "+ Melody" styles.
+
 ## 0.2.0
 - Song arrangement now Intro / Verse / Pre-Chorus / Chorus / Bridge / Outro.
 - New genre: Soft Rock Ballad (5 grooves, 5 styles, 3 progressions).

@@ -156,6 +156,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout FaseGroovePianoProcessor::cr
     choice (ParamIDs::strumDir, "Strum Direction", { "Up", "Down", "Alternate" }, 0);
     unitFloat (ParamIDs::strum, "Strum", 0.0f, 0.0f);
     add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::octaveTop, 1 }, "Top Note +8va", false));
+    add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::melody, 1 }, "Piano Melody", false));
     choice (ParamIDs::playMode, "Play Mode", { "Host transport", "Hold a key" }, 0);
 
     group ("groove", "Groove");
@@ -582,6 +583,9 @@ namespace
         { "Dotted Rock Drive", "Rock Ballad Borrowed  I - IV - bVII - IV", "Dotted Rock Drive", 0, 3, 15, 0, 2, 62, 0.00f, 0.80f, 0.20f, 0.15f, false, 0, 0, 0 },
         { "Arena Lift Ballad", "Pachelbel Canon  I-V-vi-iii-IV-I-IV-V", "Arena Arpeggio Lift", 0, 0, 7, 0, 1, 62, 0.00f, 0.92f, 0.20f, 0.10f, false, 0, 0, 0 },
         { "Rock Ballad Push", "Piano Rock  vi - V - IV - I", "Rock Ballad Push", 5, 3, 29, 0, 1, 62, 0.00f, 0.90f, 0.20f, 0.15f, false, 0, 0, 0 },
+        { "Pop Ballad + Melody", "50s Ballad  I - vi - IV - V", "Half Note Chords", 5, 3, 8, 0, 1, 62, 0.00f, 0.92f, 0.25f, 0.25f, false, 0, 0, 0 },
+        { "Soft Rock + Melody", "Soft Rock Anthem  I - IV - V - IV", "Soft Rock Eighths", 0, 3, 12, 0, 2, 62, 0.00f, 0.85f, 0.20f, 0.15f, false, 0, 0, 0 },
+        { "Indie Pop + Melody", "Indie Mixo  I - bVII - IV - I", "Indie Dotted", 5, 0, 16, 0, 4, 62, 0.10f, 0.50f, 0.25f, 0.00f, false, 0, 0, 0 },
         // Genre presets (one per groove category), appended after the hand-made styles.
         { fgfamily::names[0], "", "", 0,0,0,0,0,64,0,0,0,0,false },
         { fgfamily::names[1], "", "", 0,0,0,0,0,64,0,0,0,0,false },
@@ -1045,6 +1049,8 @@ void FaseGroovePianoProcessor::applyStyle (int index)
     setParameterFromUI (ParamIDs::humanize, st.humanize);
     setParameterFromUI (ParamIDs::strum, st.strum);
     setParameterFromUI (ParamIDs::octaveTop, st.octaveTop ? 1.0f : 0.0f);
+    if (juce::String (st.name).contains ("Melody"))
+        setParameterFromUI (ParamIDs::melody, 1.0f);
     setParameterFromUI (ParamIDs::section, 0.0f);
     {
         const juce::String name (st.name);
@@ -1118,6 +1124,7 @@ sgk::GrooveSettings FaseGroovePianoProcessor::currentSettings() const
     s.fillStyle = (sgk::FillStyle) juce::jlimit (0, sgk::numFillStyles - 1, asInt (ParamIDs::fillStyle));
     s.strum = raw (ParamIDs::strum);
     s.octaveTop = raw (ParamIDs::octaveTop) > 0.5f;
+    s.melody = raw (ParamIDs::melody) > 0.5f;
     s.approach = (sgk::ApproachStyle) juce::jlimit (0, sgk::numApproachStyles - 1, asInt (ParamIDs::approach));
     s.topLine = (sgk::TopLine) juce::jlimit (0, sgk::numTopLines - 1, asInt (ParamIDs::topLine));
     for (int i = 0; i < sgk::maxProgressionLength; ++i)
@@ -1150,7 +1157,7 @@ sgk::GrooveSettings FaseGroovePianoProcessor::currentSettings() const
 
     // The section playing now uses its own variation, if it was regenerated in the song.
     for (int i = 0; i < numSongParts; ++i)
-        if (sgk::defaultArrangement()[(size_t) i].section == s.section)
+        if (songSection[(size_t) i].load() == (int) s.section)
         {
             s.sectionVariation = songVariation[(size_t) i].load();
 
@@ -1965,7 +1972,7 @@ std::vector<sgk::ArrangementPart> FaseGroovePianoProcessor::songArrangementParts
 {
     std::vector<sgk::ArrangementPart> parts;
     for (int i = 0; i < numSongParts; ++i)
-        parts.push_back ({ sgk::defaultArrangement()[(size_t) i].section, songBars[(size_t) i].load(), songVariation[(size_t) i].load(),
+        parts.push_back ({ (sgk::Section) juce::jlimit (0, sgk::numSections - 1, songSection[(size_t) i].load()), songBars[(size_t) i].load(), songVariation[(size_t) i].load(),
                            songFill[(size_t) i].load() });
     return parts;
 }
@@ -1974,6 +1981,45 @@ void FaseGroovePianoProcessor::setSongBars (int part, int bars)
 {
     if (juce::isPositiveAndBelow (part, numSongParts))
         songBars[(size_t) part] = juce::jlimit (0, 64, bars);
+}
+
+void FaseGroovePianoProcessor::setSongSection (int part, int section)
+{
+    if (juce::isPositiveAndBelow (part, numSongParts))
+        songSection[(size_t) part] = juce::jlimit (0, sgk::numSections - 1, section);
+}
+
+void FaseGroovePianoProcessor::moveSongPart (int part, int delta)
+{
+    const int other = part + (delta < 0 ? -1 : 1);
+    if (! juce::isPositiveAndBelow (part, numSongParts) || ! juce::isPositiveAndBelow (other, numSongParts))
+        return;
+    const int section = songSection[(size_t) part].load(), bars = songBars[(size_t) part].load(), fill = songFill[(size_t) part].load();
+    const auto variation = songVariation[(size_t) part].load();
+    songSection[(size_t) part] = songSection[(size_t) other].load();
+    songBars[(size_t) part] = songBars[(size_t) other].load();
+    songFill[(size_t) part] = songFill[(size_t) other].load();
+    songVariation[(size_t) part] = songVariation[(size_t) other].load();
+    songSection[(size_t) other] = section;
+    songBars[(size_t) other] = bars;
+    songFill[(size_t) other] = fill;
+    songVariation[(size_t) other] = variation;
+}
+
+juce::String FaseGroovePianoProcessor::songPartLabel (const std::vector<sgk::ArrangementPart>& parts, int index)
+{
+    if (! juce::isPositiveAndBelow (index, (int) parts.size()))
+        return {};
+    const auto kind = parts[(size_t) index].section;
+    int same = 0, before = 0;
+    for (int i = 0; i < (int) parts.size(); ++i)
+        if (parts[(size_t) i].bars > 0 && parts[(size_t) i].section == kind)
+        {
+            ++same;
+            if (i < index) ++before;
+        }
+    const auto name = tr (sgk::sectionName ((int) kind));
+    return same > 1 ? name + " " + juce::String (before + 1) : name;
 }
 
 void FaseGroovePianoProcessor::setSongFill (int part, int fill)
@@ -1998,7 +2044,12 @@ void FaseGroovePianoProcessor::resetSong()
 {
     for (int i = 0; i < numSongParts; ++i)
     {
-        songBars[(size_t) i] = sgk::defaultArrangement()[(size_t) i].bars;
+        // Intro, Verse, Pre-Chorus, Chorus, Bridge, Outro; four spare rows (left out) for Verse 2, a
+        // second Pre-Chorus and the final choruses.
+        static constexpr int defaultSection[numSongParts] { 1, 0, 3, 4, 2, 5, 0, 3, 4, 4 };
+        static constexpr int defaultBars[numSongParts]    { 8, 16, 4, 16, 8, 8, 0, 0, 0, 0 };
+        songSection[(size_t) i] = defaultSection[i];
+        songBars[(size_t) i] = defaultBars[i];
         songVariation[(size_t) i] = 0;
         songFill[(size_t) i] = -1;
     }
@@ -2538,7 +2589,7 @@ juce::File FaseGroovePianoProcessor::writeSongSectionClip (int partIndex, ClipPa
     std::vector<sgk::GrooveEngine::Marker> markers;
     const auto events = sgk::GrooveEngine::renderArrangement (currentSettings(), { section }, &markers);
     const juce::String instrument = instrumentName (part);
-    const auto sectionText = tr (sgk::sectionName ((int) section.section));
+    const auto sectionText = songPartLabel (parts, partIndex);
     // Separate tracks: the file is named after the section, its tracks "Piano Intro", "Bass Intro"...
     const auto title = part == ClipPart::tracks ? sectionText : instrument + " " + sectionText;
     const auto midi = midiFromEvents (events, section.bars * 4.0, &markers, part, title, sectionText);
@@ -2753,13 +2804,15 @@ void FaseGroovePianoProcessor::getStateInformation (juce::MemoryBlock& destData)
     state.setProperty ("linkDrums", linkOn.load(), nullptr);
     state.setProperty ("linkKey", keyLinked.load(), nullptr);
     {
-        juce::StringArray bars, variations, fills;
+        juce::StringArray bars, variations, fills, kinds;
         for (int i = 0; i < numSongParts; ++i)
         {
+            kinds.add (juce::String (songSection[(size_t) i].load()));
             bars.add (juce::String (songBars[(size_t) i].load()));
             variations.add (juce::String ((juce::int64) songVariation[(size_t) i].load()));
             fills.add (juce::String (songFill[(size_t) i].load()));
         }
+        state.setProperty ("songSections", kinds.joinIntoString (","), nullptr);
         state.setProperty ("songBars", bars.joinIntoString (","), nullptr);
         state.setProperty ("songFills", fills.joinIntoString (","), nullptr);
         state.setProperty ("songVariations", variations.joinIntoString (","), nullptr);
@@ -2883,8 +2936,11 @@ void FaseGroovePianoProcessor::setStateInformation (const void* data, int sizeIn
         const auto bars = juce::StringArray::fromTokens (state.getProperty ("songBars").toString(), ",", {});
         const auto variations = juce::StringArray::fromTokens (state.getProperty ("songVariations").toString(), ",", {});
         const auto fills = juce::StringArray::fromTokens (state.getProperty ("songFills").toString(), ",", {});
+        const auto kinds = juce::StringArray::fromTokens (state.getProperty ("songSections").toString(), ",", {});
         for (int i = 0; i < numSongParts; ++i)
         {
+            if (i < kinds.size() && kinds[i].isNotEmpty() && kinds[i].containsOnly ("0123456789"))
+                setSongSection (i, kinds[i].getIntValue());
             if (i < bars.size() && bars[i].containsOnly ("0123456789"))
                 setSongBars (i, bars[i].getIntValue());
             if (i < variations.size() && variations[i].containsOnly ("0123456789"))

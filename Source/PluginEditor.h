@@ -506,8 +506,8 @@ private:
     void refresh();
 
     FaseGroovePianoProcessor& processor;
-    juce::OwnedArray<juce::ComboBox> barBoxes;
-    juce::OwnedArray<juce::TextButton> newButtons, originalButtons;
+    juce::OwnedArray<juce::ComboBox> barBoxes, typeBoxes;
+    juce::OwnedArray<juce::TextButton> newButtons, originalButtons, upButtons, downButtons;
     juce::OwnedArray<juce::ComboBox> fillBoxes;
     juce::TextButton saveButton, saveSongButton, closeButton;
     juce::OwnedArray<IconButton> partButtons;   // in ClipPart order: all, piano, bass, tracks, strings
@@ -871,6 +871,8 @@ private:
     juce::TextButton strumDirButton;
     juce::ToggleButton octaveToggle { "Top +8va" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> octaveAttachment;
+    juce::ToggleButton melodyToggle { "Melody" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> melodyAttachment;
     CircleOfFifths circle;
     juce::ToggleButton freeToggle { "Free" };
 

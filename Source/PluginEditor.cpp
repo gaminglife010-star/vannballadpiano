@@ -2181,12 +2181,34 @@ void VoicingCoach::paint (juce::Graphics& g)
 namespace
 {
     constexpr int songBarChoices[] { 0, 2, 4, 8, 16, 32 };
+    constexpr int songKindOrder[] { (int) sgk::Section::intro, (int) sgk::Section::main, (int) sgk::Section::buildup,
+                                    (int) sgk::Section::drop, (int) sgk::Section::breakdown, (int) sgk::Section::outro };
 }
 
 SongOverlay::SongOverlay (FaseGroovePianoProcessor& p) : processor (p)
 {
     for (int i = 0; i < FaseGroovePianoProcessor::numSongParts; ++i)
     {
+        // The kind of section of this row (song order: intro, verse, pre-chorus, chorus, bridge, outro).
+        auto* type = typeBoxes.add (new juce::ComboBox());
+        for (int k = 0; k < 6; ++k)
+            type->addItem (tr (sgk::sectionName (songKindOrder[k])), k + 1);
+        type->onChange = [this, i, type]
+        {
+            processor.setSongSection (i, songKindOrder[juce::jlimit (0, 5, type->getSelectedId() - 1)]);
+            refresh();
+        };
+        addAndMakeVisible (type);
+
+        auto* up = upButtons.add (new juce::TextButton (juce::String::fromUTF8 ("\xe2\x86\x91")));
+        up->setTooltip ("Move this part up");
+        up->onClick = [this, i] { processor.moveSongPart (i, -1); selected = -1; refresh(); };
+        addAndMakeVisible (up);
+        auto* down = downButtons.add (new juce::TextButton (juce::String::fromUTF8 ("\xe2\x86\x93")));
+        down->setTooltip ("Move this part down");
+        down->onClick = [this, i] { processor.moveSongPart (i, +1); selected = -1; refresh(); };
+        addAndMakeVisible (down);
+
         auto* box = barBoxes.add (new juce::ComboBox());
         for (int bars : songBarChoices)
             box->addItem (bars == 0 ? "-" : juce::String (bars), bars + 1);
@@ -2351,6 +2373,11 @@ void SongOverlay::refresh()
         for (int bars : songBarChoices)
             if (bars <= parts[(size_t) i].bars) id = bars + 1;
         barBoxes[i]->setSelectedId (id, juce::dontSendNotification);
+        for (int k = 0; k < 6; ++k)
+            if (songKindOrder[k] == (int) parts[(size_t) i].section)
+                typeBoxes[i]->setSelectedId (k + 1, juce::dontSendNotification);
+        upButtons[i]->setEnabled (i > 0);
+        downButtons[i]->setEnabled (i + 1 < (int) parts.size());
         // Intro, outro and breakdown are pads / no bass: a variation matters little there, but it is allowed.
         originalButtons[i]->setEnabled (parts[(size_t) i].variation != 0);
         const int fill = parts[(size_t) i].endFill;
@@ -2375,7 +2402,7 @@ juce::Rectangle<int> SongOverlay::rowArea (int part) const
 {
     auto inner = card().toNearestInt().reduced (28, 20);
     inner.removeFromTop (64 + 46 + 14 + 18);   // title, timeline, gap, column names
-    return inner.removeFromTop (46 * (part + 1)).removeFromBottom (46).reduced (0, 4);
+    return inner.removeFromTop (34 * (part + 1)).removeFromBottom (34).reduced (0, 2);
 }
 
 void SongOverlay::setMini (bool shouldBeMini, juce::Component* tile)
@@ -2399,7 +2426,12 @@ void SongOverlay::resized()
     for (int i = 0; i < barBoxes.size(); ++i)
     {
         auto row = rowArea (i);
-        row.removeFromLeft (190);   // section name
+        auto kind = row.removeFromLeft (190);   // kind of section, and the arrows that move it
+        typeBoxes[i]->setBounds (kind.removeFromLeft (126));
+        kind.removeFromLeft (6);
+        upButtons[i]->setBounds (kind.removeFromLeft (26));
+        kind.removeFromLeft (2);
+        downButtons[i]->setBounds (kind.removeFromLeft (26));
         barBoxes[i]->setBounds (row.removeFromLeft (76));
         row.removeFromLeft (14);
         newButtons[i]->setBounds (row.removeFromLeft (150));
@@ -2459,7 +2491,7 @@ void SongOverlay::paint (juce::Graphics& g)
     g.drawText (Localisation::upper (tr ("Song arrangement")), inner.removeFromTop (28.0f), juce::Justification::centredLeft);
     g.setColour (Palette::dim);
     g.setFont (font (12.0f));
-    g.drawFittedText (tr ("Bars of each section (- leaves it out), its own variation of the groove and the fill that leads out of it. Drag the whole song, or click a section on the timeline and drag just that one."),
+    g.drawFittedText (tr ("Build your song: pick the kind of each part, move it with the arrows, set its bars (- leaves it out, so use a spare row to add Verse 2 or a final chorus), its variation and the fill out of it. Drag the whole song, or click a part on the timeline and drag just that one."),
                       inner.removeFromTop (30.0f).toNearestInt(), juce::Justification::topLeft, 2);
 
     const auto parts = processor.songArrangementParts();
@@ -2517,15 +2549,6 @@ void SongOverlay::paint (juce::Graphics& g)
         const auto row = rowArea (i).toFloat();
         g.setColour (Palette::background.withAlpha (i % 2 == 0 ? 1.0f : 0.6f));
         g.fillRoundedRectangle (row.expanded (8.0f, 2.0f), 6.0f);
-        auto label = row.withWidth (180.0f);
-        g.setColour (parts[(size_t) i].bars > 0 ? Palette::text : Palette::dim);
-        g.setFont (font (14.0f, true));
-        g.drawText (tr (sgk::sectionName ((int) parts[(size_t) i].section)), label.removeFromTop (label.getHeight() * 0.56f), juce::Justification::bottomLeft);
-        g.setFont (font (10.5f));
-        g.setColour (parts[(size_t) i].variation != 0 ? Palette::accent : Palette::dim);
-        g.drawText (parts[(size_t) i].bars <= 0 ? tr ("left out")
-                    : parts[(size_t) i].variation != 0 ? tr ("own variation") : tr ("the groove as it is"),
-                    label, juce::Justification::topLeft);
     }
 
     // The instrument row's caption.
@@ -4535,7 +4558,7 @@ FaseGroovePianoEditor::FaseGroovePianoEditor (FaseGroovePianoProcessor& p)
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &progLength, &chordLength, &key, &scale, &extension, &voicing, &bass, &strings, &approach, &topLine, &movement, &variation, &grooveBars, &chorus, &pump, &pumpRelease, &pumpSource, &pumpRate, &sidechainMeter, &registerKnob, &strumKnob,
-             &octaveToggle, &circle,
+             &octaveToggle, &melodyToggle, &circle,
              &diceProgression, &pattern, &section, &newRiffButton, &fills, &fillStyle, &playMode, &soundType,
              &swing, &gate, &velocity, &humanize, &riffDensity,
              &soundToggle, &bassChannel, &tone, &reverb, &volume, &patternView,
@@ -4543,6 +4566,8 @@ FaseGroovePianoEditor::FaseGroovePianoEditor (FaseGroovePianoProcessor& p)
         addAndMakeVisible (c);
 
     octaveAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (p.apvts, ParamIDs::octaveTop, octaveToggle);
+    melodyAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (p.apvts, ParamIDs::melody, melodyToggle);
+    melodyToggle.setTooltip ("Add a singable piano melody above the chords (not in the intro and outro)");
     octaveToggle.setTooltip ("Double the top note of every chord an octave higher (bright house piano)");
 
     newRiffButton.setTooltip ("Generate a brand new random funky riff");
@@ -6562,7 +6587,7 @@ void FaseGroovePianoEditor::updateHarmonyTab()
     const bool all = processor.advancedView, piano = harmonyTab == 0;
     for (int i = 0; i < 3; ++i)
         harmonyTabs[(size_t) i].setToggleState (i == harmonyTab, juce::dontSendNotification);
-    for (auto* c : std::initializer_list<juce::Component*> { &voicing, &coachButton, &registerKnob })
+    for (auto* c : std::initializer_list<juce::Component*> { &voicing, &coachButton, &registerKnob, &melodyToggle })
         c->setVisible (piano);
     for (auto* c : std::initializer_list<juce::Component*> { &strumKnob, &strumDirButton, &octaveToggle, &topLine, &movement, &rangeSlider, &rangeLabel })
         c->setVisible (all && piano);
@@ -6719,6 +6744,7 @@ void FaseGroovePianoEditor::layoutFull()
         {
             voicing.setBounds (content.removeFromTop (44));
             content.removeFromTop (4);
+            melodyToggle.setBounds (content.removeFromBottom (26));
             registerKnob.setBounds (content.withSizeKeepingCentre (110, content.getHeight()));
         }
         else
@@ -6730,7 +6756,8 @@ void FaseGroovePianoEditor::layoutFull()
             content.removeFromTop (4);
             // Bottom row: Top +8va and the strum direction (a real button, easy to read).
             auto switches = content.removeFromBottom (24);
-            octaveToggle.setBounds (switches.removeFromLeft (switches.getWidth() / 2));
+            octaveToggle.setBounds (switches.removeFromLeft (switches.getWidth() / 3));
+            melodyToggle.setBounds (switches.removeFromLeft (switches.getWidth() / 2));
             strumDirButton.setBounds (switches.withTrimmedLeft (6));
             content.removeFromBottom (4);
             // Right: movement, then the chords' range; left: the two knobs, as big as they fit.

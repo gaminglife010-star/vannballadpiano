@@ -46,6 +46,7 @@ namespace ParamIDs
     inline constexpr const char* fillStyle   = "fillStyle";
     inline constexpr const char* strum       = "strum";
     inline constexpr const char* octaveTop   = "octaveTop";
+    inline constexpr const char* melody      = "melody";
     inline constexpr const char* approach    = "approach";
     inline constexpr const char* topLine     = "topLine";
     inline constexpr const char* variation   = "variation";
@@ -329,9 +330,12 @@ public:
     static bool writeMidiFileSafely (const juce::MidiFile&, const juce::File& target);
 
     // Song arrangement: Intro, Verse, Pre-Chorus, Chorus, Bridge, Outro (the order of sgk::defaultArrangement).
-    static constexpr int numSongParts = 6;
+    static constexpr int numSongParts = 10;
     std::vector<sgk::ArrangementPart> songArrangementParts() const;
     void setSongBars (int part, int bars);
+    void setSongSection (int part, int section);   // which kind of section (sgk::Section) this row of the song is
+    void moveSongPart (int part, int delta);        // swap this row with the one above (-1) or below (+1)
+    static juce::String songPartLabel (const std::vector<sgk::ArrangementPart>& parts, int index);   // "Verse 2" when a kind repeats
     void setSongFill (int part, int fill);   // -1 as the Groove panel, -2 none, else a fill style (last bar of the section)
     void regenerateSongPart (int part);   // this section plays a new variation of the groove
     void resetSongPart (int part);        // back to the groove as it is
@@ -481,9 +485,10 @@ private:
     std::array<bool, sgk::numSegments> velocityLocked {};
     void resetSegmentVelocities (int segment, bool chords, bool bass);
     std::array<bool, sgk::numSegments> segmentLocked {};
-    std::array<std::atomic<int>, 6> songBars;                 // per song section (0 = left out)
-    std::array<std::atomic<std::uint32_t>, 6> songVariation;  // 0 = the groove as it is
-    std::array<std::atomic<int>, 6> songFill;                 // see setSongFill
+    std::array<std::atomic<int>, numSongParts> songBars;                 // per song section (0 = left out)
+    std::array<std::atomic<std::uint32_t>, numSongParts> songVariation;  // 0 = the groove as it is
+    std::array<std::atomic<int>, numSongParts> songSection;   // sgk::Section of each row
+    std::array<std::atomic<int>, numSongParts> songFill;                 // see setSongFill
     sgk::GroovePattern morphSource;
     std::uint32_t morphSeed = 1;
     juce::MidiFile midiFromEvents (const std::vector<sgk::NoteEvent>&, double beats, const std::vector<sgk::GrooveEngine::Marker>*,
